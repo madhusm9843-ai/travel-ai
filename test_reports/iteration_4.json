@@ -1,0 +1,23 @@
+{
+  "summary": "Iteration 4 retest of infer_category fix. server.py line 386 regex now includes 'eat(s|ing)?' — confirmed. Ran 6 parametrized cases via pytest: all PASS in 40.6s. New cases: 'where should I eat?'→restaurant, 'good place to eat nearby'→restaurant, 'eating spots close by'→restaurant. Regression cases: 'hotels near me'→hotel, 'coffee shops close by'→cafe, 'places to see nearby'→attraction. Fix is correct and no other category inference regressed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/nearby", "issue": "Overpass mirror flakiness noted in iter3 still present but not blocking — non-blocking suggestion to retry once on empty."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_nearby.py", "/app/test_reports/pytest/iter4.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "infer_category regex correctly extended with 'eat(s|ing)?'. Consider consolidating client-side NEARBY_INTENT_RE in AIConcierge with this backend regex to avoid divergence (carried over from iter3)."
+  ],
+  "updated_files": ["/app/backend/tests/test_nearby.py"],
+  "success_rate": {"backend": "100% (6/6 category inference tests)", "frontend": "N/A - backend only"},
+  "test_credentials": "No auth.",
+  "seed_data_creation": "TEST_inf_* session ids, cleaned up via DELETE /api/chat/{sid}.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The 'eat' regex fix is verified. Full test file at /app/backend/tests/test_nearby.py — run with pytest backend/tests/test_nearby.py -k 'infers_category' for a fast 40s regression on category inference. Full suite includes /api/nearby tests that hit Overpass mirror (maps.mail.ru) — occasionally flaky.",
+  "rca of the issue": "Prior bug: restaurant regex missing 'eat' keyword. Fix in server.py:386 adds |eat(s|ing)? — verified matching 'eat', 'eating', 'eats' (word boundaries preserved via outer \\b group). All 3 new eat/eating cases now return category='restaurant' and no regression on hotel/cafe/attraction."
+}

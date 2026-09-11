@@ -9,8 +9,13 @@ export const listDestinations = () => http.get("/destinations").then((r) => r.da
 export const getDestination = (id) => http.get(`/destinations/${id}`).then((r) => r.data);
 
 export const sendChat = (payload) => http.post("/chat", payload).then((r) => r.data);
+export const chatNearby = (payload) => http.post("/chat/nearby", payload).then((r) => r.data);
+export const nearbyPois = (params) => http.get("/nearby", { params }).then((r) => r.data);
 export const getChatHistory = (sid) => http.get(`/chat/${sid}`).then((r) => r.data);
 export const clearChat = (sid) => http.delete(`/chat/${sid}`).then((r) => r.data);
+
+// Regex for detecting "nearby" intent client-side to route the message to /chat/nearby
+export const NEARBY_INTENT_RE = /\b(near\s?me|nearby|near\s?by|close\s?by|around\s?(me|here)|within|walking\s?distance)\b|\b(hotels?|restaurants?|caf[eé]s?|coffee|pubs?|bars?|shops?|malls?|atms?|hospitals?|pharmac(y|ies)|petrol|gas station|attractions?|museums?|viewpoints?|temples?|churches)\s+(near|around|close|nearby|by me)/i;
 
 // Streaming chat via SSE (fetch + ReadableStream)
 export async function streamChat({ session_id, message, context }, { onDelta, onStart, onDone, onError, signal }) {

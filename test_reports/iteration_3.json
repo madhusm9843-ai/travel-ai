@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration 3 validated nearby POI + location-aware chat + Live Trip page. Backend: 9/10 pytest passing (test_nearby.py). All 4 /api/nearby cases pass (restaurant count=12 >=5 with correct fields/sort/photo/osm_url; hotel/cafe/attraction non-empty; ocean coords count=0). /api/chat/nearby correctly infers 'hotel' for 'hotels near me' and returns pois + LLM reply referencing them, and persists user+assistant to Mongo. Category inference works for 'coffee shops close by'→cafe and 'places to see nearby'→attraction. FAIL: 'where should I eat?'→'attraction' instead of 'restaurant' — infer_category regex missing 'eat' keyword. /api/chat still works (regression pass). Overpass mirror is flaky on first request (returned 0 once, 12 on retry) — mention as minor. Frontend /live route works via nav-live; all 5 stat cards render (stat-location shows coords 12.97160,77.59460 + updating 'Xs ago', stat-traffic shows Moderate with colored progress bar, stat-eta/stat-budget visible). Per-second tick confirmed by seconds-ago changing between polls. AI Concierge auto-opens with 'live GPS' badge. Hotels near me chip fires POST /api/chat/nearby (verified via request interception), returns 8 poi-card-* with images, distance chip, View on map link; POI markers pinned on the Leaflet map with blue pulsing 'me' marker at user coords. 'Best time to visit Ladakh' routes to /api/chat/stream (not /chat/nearby), streams a 2805-char reply, and renders NO POI cards. View on map click triggers flyTo focus.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/chat/nearby", "issue": "infer_category regex for 'restaurant' does not include bare 'eat' — message 'where should I eat?' falls through to 'attraction'. Requirement expects 'restaurant'. Fix: add '\\beat(ing)?\\b' to the restaurant regex in server.py::infer_category."},
+      {"endpoint": "/api/nearby", "issue": "Overpass mirror occasionally returns 0 elements on first hit then works on retry (~10% flake). Consider retrying overpass_nearby once if elements is empty before returning."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "LiveTrip stat-speed", "issue": "When geolocation is mocked to a static point (Playwright set_geolocation, or user standing still), inferredSpeed remains null and stat-speed shows '— km/h'. Not a real bug — on a moving device coords.speed or inferred delta populates; but there is no on-page fallback/help text to clarify. Consider showing '0.0 km/h · stationary' when we have a fix but no movement.", "affected_selectors": ["[data-testid=\"stat-speed\"]"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_nearby.py", "/app/backend/tests/test_travelmate.py", "/app/test_reports/pytest/iter3.xml"],
+  "action_items": [
+    "Fix infer_category: add 'eat' (and 'eats') keyword to the restaurant regex so 'where should I eat?' → restaurant.",
+    "(Optional) Add a single retry inside overpass_nearby when the first mirror returns 0 elements to reduce first-hit flakiness.",
+    "(Optional polish) Show '0.0 km/h · stationary' on stat-speed when GPS fix exists but no movement detected."
+  ],
+  "critical_code_review_comments": [
+    "server.py now 750+ lines — same maintainability comment from iter2 stands; split into routers/{chat,nearby,itinerary,transport,bookings}.py.",
+    "overpass_nearby swallows all mirror exceptions and breaks on first empty response; a mirror returning {elements: []} legitimately (e.g. Bangalore) is indistinguishable from a partial failure — consider treating empty as 'try next mirror' and only return empty after all mirrors were tried.",
+    "AIConcierge.send: setStreaming(false) is set at end of nearby branch but not inside a try/finally around chatNearby — an exception before catch would leave streaming stuck true. Move the setStreaming(false) into a finally.",
+    "MapView.MapWiring: focus dependency uses focus object identity not its coords/ts — parent sets ts=Date.now() so it always re-fires, fine, but callers not setting ts would deduplicate incorrectly. Consider watching focus?.lat/lng/ts explicitly.",
+    "AIConcierge: NEARBY_INTENT_RE test is done client-side but backend also has infer_category — divergence risk. Consolidate to backend-only (always POST to /chat/nearby when coords available and let server decide) OR share the regex source."
+  ],
+  "updated_files": ["/app/backend/tests/test_nearby.py"],
+  "success_rate": {"backend": "90% (9/10; 1 real infer_category bug, 1 flaky retry passed)", "frontend": "100% on functional review-request items"},
+  "test_credentials": "No auth in app.",
+  "seed_data_creation": "TEST_* session ids only; tests clean up via DELETE /api/chat/{sid}.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Overpass primary is unreachable from container; maps.mail.ru mirror is the working one (first in OVERPASS_MIRRORS). Use Bangalore 12.9716,77.5946 for reliable POI results. For frontend geolocation use Playwright ctx.grant_permissions(['geolocation'], origin=...) + ctx.set_geolocation({latitude,longitude}) BEFORE navigation or reload. stat-speed will read '—' with a static mocked geolocation — this is expected and NOT a bug. To validate speed populates, you'd need to programmatically call ctx.set_geolocation multiple times with different coords a second apart. Chip data-testids are chip-hotels, chip-restaurants, chip-cafés (using first word lowercased). Non-nearby chat 'Best time to visit Ladakh' correctly routes to /chat/stream. POI cards use data-testid poi-cards (container) + poi-card-<name-slug> (each).",
+  "rca of the issue": "infer_category (server.py line ~382): the restaurant regex is r'\\b(restaurant|dine|dining|eatery|thali|lunch|dinner|meal|street food|food)\\b' — missing 'eat' and 'eats'. Message 'where should I eat?' matches none of these, then falls through to the attraction regex which also does not match, then the fallback in chat_nearby defaults category to 'attraction'. Fix: add '|eat(s|ing)?' to the restaurant regex."
+}

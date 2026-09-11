@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import re
+import math
 import json
 import logging
 import uuid
@@ -357,6 +359,173 @@ async def chat_history(session_id: str):
 async def clear_chat(session_id: str):
     await db.chat_messages.delete_many({"session_id": session_id})
     return {"ok": True}
+
+
+# ---------- Nearby POI search via OpenStreetMap Overpass ----------
+CATEGORY_FILTER = {
+    "hotel": '["tourism"~"^(hotel|hostel|guest_house|motel|apartment)$"]',
+    "restaurant": '["amenity"~"^(restaurant|fast_food|food_court)$"]',
+    "cafe": '["amenity"~"^(cafe|bar|pub|ice_cream)$"]',
+    "attraction": '["tourism"~"^(attraction|museum|viewpoint|artwork|zoo|theme_park|gallery)$"]',
+    "atm": '["amenity"~"^(atm|bank)$"]',
+    "hospital": '["amenity"~"^(hospital|pharmacy|clinic)$"]',
+    "fuel": '["amenity"="fuel"]',
+    "shopping": '["shop"]',
+}
+
+NEARBY_KEYWORDS = re.compile(
+    r"\b(near\s?me|nearby|near\s?by|close\s?by|around\s?(me|here)|within|walking distance)\b",
+    re.I,
+)
+
+
+def infer_category(text: str) -> Optional[str]:
+    t = text.lower()
+    if re.search(r"\b(hotel|stay|resort|hostel|lodge|guest\s?house|motel|room)s?\b", t):
+        return "hotel"
+    if re.search(r"\b(restaurant|dine|dining|eatery|thali|lunch|dinner|meal|street\s?food|food|eat(s|ing)?)\b", t):
+        return "restaurant"
+    if re.search(r"\b(caf[eé]|coffee|bar|pub|breakfast|dessert|ice\s?cream)s?\b", t):
+        return "cafe"
+    if re.search(r"\b(attraction|tourist|monument|museum|viewpoint|temple|church|beach|park|spot)s?\b", t):
+        return "attraction"
+    if re.search(r"\b(atm|bank)s?\b", t):
+        return "atm"
+    if re.search(r"\b(hospital|pharmacy|clinic|medical)\b", t):
+        return "hospital"
+    if re.search(r"\b(fuel|petrol|gas|diesel)\s?(pump|station)?\b", t):
+        return "fuel"
+    if re.search(r"\b(shop|mall|market|store)s?\b", t):
+        return "shopping"
+    return None
+
+
+def _haversine(a_lat: float, a_lng: float, b_lat: float, b_lng: float) -> float:
+    R = 6371000.0
+    p1 = math.radians(a_lat); p2 = math.radians(b_lat)
+    dp = math.radians(b_lat - a_lat); dl = math.radians(b_lng - a_lng)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * R * math.asin(math.sqrt(a))
+
+
+def _photo_for(category: str, name: str) -> str:
+    kw = (name.split(",")[0]).strip().replace(" ", ",")
+    slug = f"{category},{kw}" if kw else category
+    return f"https://source.unsplash.com/400x300/?{slug}"
+
+
+OVERPASS_MIRRORS = [
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+    "https://overpass.osm.jp/api/interpreter",
+]
+
+
+async def overpass_nearby(lat: float, lng: float, category: str, radius: int = 1500, limit: int = 12) -> List[Dict[str, Any]]:
+    q_filter = CATEGORY_FILTER.get(category, '["tourism"]')
+    query = f"""[out:json][timeout:20];
+(
+  node{q_filter}(around:{radius},{lat},{lng});
+  way{q_filter}(around:{radius},{lat},{lng});
+);
+out center 40;"""
+    elements: List[Dict[str, Any]] = []
+    for url in OVERPASS_MIRRORS:
+        try:
+            async with httpx.AsyncClient(timeout=20, headers={"User-Agent": "TravelMateAI/1.0"}) as hc:
+                r = await hc.post(url, data={"data": query})
+                if r.status_code == 200:
+                    elements = r.json().get("elements", [])
+                    if elements is not None:
+                        break
+        except Exception as e:
+            logging.info(f"Overpass mirror {url} failed: {type(e).__name__}")
+            continue
+
+    results: List[Dict[str, Any]] = []
+    for e in elements:
+        tags = e.get("tags", {})
+        name = tags.get("name") or tags.get("brand")
+        if not name:
+            continue
+        elat = e.get("lat") or e.get("center", {}).get("lat")
+        elng = e.get("lon") or e.get("center", {}).get("lon")
+        if not elat or not elng:
+            continue
+        dist = _haversine(lat, lng, elat, elng)
+        results.append({
+            "name": name,
+            "lat": elat, "lng": elng,
+            "distance_m": round(dist),
+            "category": category,
+            "cuisine": tags.get("cuisine"),
+            "stars": tags.get("stars"),
+            "phone": tags.get("phone") or tags.get("contact:phone"),
+            "website": tags.get("website") or tags.get("contact:website"),
+            "address": tags.get("addr:street") or tags.get("addr:full") or tags.get("addr:city") or "",
+            "photo": _photo_for(category, name),
+            "osm_url": f"https://www.openstreetmap.org/?mlat={elat}&mlon={elng}#map=18/{elat}/{elng}",
+        })
+    results.sort(key=lambda x: x["distance_m"])
+    return results[:limit]
+
+
+@api_router.get("/nearby")
+async def nearby(lat: float, lng: float, category: str = "attraction", radius: int = 1500):
+    pois = await overpass_nearby(lat, lng, category, radius=radius)
+    return {"category": category, "count": len(pois), "results": pois}
+
+
+class NearbyChatRequest(BaseModel):
+    session_id: str
+    message: str
+    lat: float
+    lng: float
+    radius: Optional[int] = 1500
+    category: Optional[str] = None
+    context: Optional[Dict[str, Any]] = None
+
+
+@api_router.post("/chat/nearby")
+async def chat_nearby(req: NearbyChatRequest):
+    """Location-aware chat: fetches nearby POIs from OpenStreetMap, then answers with the LLM using them as context."""
+    category = req.category or infer_category(req.message) or "attraction"
+    pois = await overpass_nearby(req.lat, req.lng, category, radius=req.radius or 1500, limit=8)
+
+    poi_context = "\n".join([
+        f"- {p['name']} ({p['category']}, {p['distance_m']}m away) "
+        f"{'· ' + p['cuisine'] if p.get('cuisine') else ''}"
+        f"{'· ★' + p['stars'] if p.get('stars') else ''}"
+        for p in pois
+    ]) or "No POIs returned from the OpenStreetMap search."
+
+    history = await db.chat_messages.find({"session_id": req.session_id}, {"_id": 0}).sort("timestamp", 1).to_list(20)
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content":
+            f"The traveller is at latitude {req.lat}, longitude {req.lng}. "
+            f"You just ran a live OpenStreetMap search for {category}s within {req.radius}m. Results:\n{poi_context}\n"
+            f"Ground your recommendations in these results. Reference by name. Include distance. "
+            f"Use bullet lists. Keep it concise (max ~180 words). If results are empty, tell the user honestly and suggest broader search."
+        },
+    ]
+    for m in history[-14:]:
+        messages.append({"role": m["role"], "content": m["content"]})
+    messages.append({"role": "user", "content": req.message})
+
+    # Save user message
+    await db.chat_messages.insert_one(ChatMessage(session_id=req.session_id, role="user", content=req.message).model_dump())
+
+    reply = await groq_chat(messages, temperature=0.6)
+
+    asst = ChatMessage(session_id=req.session_id, role="assistant", content=reply)
+    await db.chat_messages.insert_one(asst.model_dump())
+
+    return {"reply": reply, "message_id": asst.id, "category": category, "pois": pois}
+
+
+
 
 
 @api_router.post("/itinerary/generate")

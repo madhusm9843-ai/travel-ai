@@ -1,5 +1,5 @@
 import { NavLink, Link } from "react-router-dom";
-import { Compass, Sparkles, Map as MapIcon, Ticket, Route, Home as HomeIcon } from "lucide-react";
+import { Compass, Sparkles, Map as MapIcon, Ticket, Route, Home as HomeIcon, Radio } from "lucide-react";
 
 const items = [
   { to: "/", label: "Home", icon: HomeIcon, testid: "nav-home" },
@@ -7,6 +7,7 @@ const items = [
   { to: "/plan", label: "Plan Trip", icon: Sparkles, testid: "nav-plan" },
   { to: "/trips", label: "My Trips", icon: Route, testid: "nav-trips" },
   { to: "/map", label: "Map", icon: MapIcon, testid: "nav-map" },
+  { to: "/live", label: "Live", icon: Radio, testid: "nav-live" },
   { to: "/bookings", label: "Bookings", icon: Ticket, testid: "nav-bookings" },
 ];
 

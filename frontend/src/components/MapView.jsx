@@ -12,10 +12,12 @@ const defaultIcon = new L.Icon({
 });
 L.Marker.prototype.options.icon = defaultIcon;
 
-function tmIcon(number) {
+function tmIcon(number, isMe = false) {
+  const bg = isMe ? "#2563EB" : "#FF5A1F";
+  const pulse = isMe ? `<div style="position:absolute;inset:-8px;border-radius:999px;background:${bg};opacity:0.35;animation:tmpulse 1.4s ease-out infinite"></div>` : "";
   return L.divIcon({
     className: "tm-div-icon",
-    html: `<div style="background:#FF5A1F;color:white;border-radius:999px;width:30px;height:30px;display:grid;place-items:center;border:3px solid white;box-shadow:0 4px 12px rgba(255,90,31,.4);font-weight:800;font-family:Manrope,sans-serif;font-size:12px">${number ?? "•"}</div>`,
+    html: `<div style="position:relative;background:${bg};color:white;border-radius:999px;width:30px;height:30px;display:grid;place-items:center;border:3px solid white;box-shadow:0 4px 12px rgba(0,0,0,.3);font-weight:800;font-family:Manrope,sans-serif;font-size:12px">${pulse}${number ?? "•"}</div><style>@keyframes tmpulse{0%{transform:scale(1);opacity:0.5}100%{transform:scale(2.4);opacity:0}}</style>`,
     iconSize: [30, 30], iconAnchor: [15, 15],
   });
 }
@@ -37,7 +39,7 @@ function ControlBar({ onLocate, onZoomIn, onZoomOut, layer, setLayer }) {
   );
 }
 
-function MapWiring({ setControls, focus }) {
+function MapWiring({ setControls, focus, follow }) {
   const map = useMap();
   useEffect(() => {
     setControls({
@@ -55,10 +57,17 @@ function MapWiring({ setControls, focus }) {
     if (focus?.lat && focus?.lng) map.flyTo([focus.lat, focus.lng], focus.zoom || 12, { duration: 1.2 });
   }, [focus, map]);
 
+  // Auto-follow live GPS smoothly if follow prop provided
+  useEffect(() => {
+    if (follow?.lat && follow?.lng) {
+      map.panTo([follow.lat, follow.lng], { animate: true, duration: 0.8 });
+    }
+  }, [follow?.lat, follow?.lng, map]);
+
   return null;
 }
 
-export default function MapView({ center = [20.5937, 78.9629], zoom = 5, markers = [], focus, height = 480 }) {
+export default function MapView({ center = [20.5937, 78.9629], zoom = 5, markers = [], focus, follow, height = 480 }) {
   const [layer, setLayer] = useState("streets");
   const [controls, setControls] = useState({});
 
@@ -86,7 +95,7 @@ export default function MapView({ center = [20.5937, 78.9629], zoom = 5, markers
           </>
         )}
         {markers.map((m, i) => (
-          <Marker key={m.id ?? i} position={[m.lat, m.lng]} icon={tmIcon(m.number ?? i + 1)}>
+          <Marker key={m.id ?? i} position={[m.lat, m.lng]} icon={tmIcon(m.number ?? i + 1, m.id === "me")}>
             <Popup>
               <div className="font-display font-bold text-sm">{m.name}</div>
               {m.description && <div className="text-xs text-[var(--tm-body)] mt-1">{m.description}</div>}
@@ -94,7 +103,7 @@ export default function MapView({ center = [20.5937, 78.9629], zoom = 5, markers
             </Popup>
           </Marker>
         ))}
-        <MapWiring setControls={setControls} focus={focus} />
+        <MapWiring setControls={setControls} focus={focus} follow={follow} />
       </MapContainer>
       <ControlBar
         onLocate={() => controls.locate?.()}

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="10" time="150.347" timestamp="2026-09-11T14:55:10.750828+00:00" hostname="agent-env-bd6ba781-5bbd-4a92-97c5-f98636d7184b"><testcase classname="tests.test_nearby" name="test_nearby_restaurant_basic" time="43.793"><failure message="AssertionError: expected &gt;=5 results, got 0&#10;assert 0 &gt;= 5">backend/tests/test_nearby.py:26: in test_nearby_restaurant_basic
+    assert data["count"] &gt;= 5, f"expected &gt;=5 results, got {data['count']}"
+E   AssertionError: expected &gt;=5 results, got 0
+E   assert 0 &gt;= 5</failure></testcase><testcase classname="tests.test_nearby" name="test_nearby_categories_nonempty[hotel]" time="1.265" /><testcase classname="tests.test_nearby" name="test_nearby_categories_nonempty[cafe]" time="4.558" /><testcase classname="tests.test_nearby" name="test_nearby_categories_nonempty[attraction]" time="0.857" /><testcase classname="tests.test_nearby" name="test_nearby_empty_ocean" time="42.683" /><testcase classname="tests.test_nearby" name="test_chat_nearby_hotel_infer_and_persist" time="43.739"><failure message="assert (True and 0 &gt; 0)&#10; +  where True = isinstance([], list)&#10; +  and   0 = len([])">backend/tests/test_nearby.py:78: in test_chat_nearby_hotel_infer_and_persist
+    assert isinstance(d["pois"], list) and len(d["pois"]) &gt; 0
+E   assert (True and 0 &gt; 0)
+E    +  where True = isinstance([], list)
+E    +  and   0 = len([])</failure></testcase><testcase classname="tests.test_nearby" name="test_chat_nearby_infers_category[where should I eat?-restaurant]" time="3.252"><failure message="AssertionError: 'where should I eat?' -&gt; attraction, expected restaurant&#10;assert 'attraction' == 'restaurant'&#10;  &#10;  - restaurant&#10;  + attraction">backend/tests/test_nearby.py:106: in test_chat_nearby_infers_category
+    assert d["category"] == expected, f"'{msg}' -&gt; {d['category']}, expected {expected}"
+E   AssertionError: 'where should I eat?' -&gt; attraction, expected restaurant
+E   assert 'attraction' == 'restaurant'
+E     
+E     - restaurant
+E     + attraction</failure></testcase><testcase classname="tests.test_nearby" name="test_chat_nearby_infers_category[coffee shops close by-cafe]" time="4.784" /><testcase classname="tests.test_nearby" name="test_chat_nearby_infers_category[places to see nearby-attraction]" time="3.038" /><testcase classname="tests.test_nearby" name="test_chat_regression_non_nearby" time="1.842" /></testsuite></testsuites>
