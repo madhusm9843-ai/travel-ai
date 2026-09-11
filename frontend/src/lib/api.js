@@ -12,6 +12,49 @@ export const sendChat = (payload) => http.post("/chat", payload).then((r) => r.d
 export const getChatHistory = (sid) => http.get(`/chat/${sid}`).then((r) => r.data);
 export const clearChat = (sid) => http.delete(`/chat/${sid}`).then((r) => r.data);
 
+// Streaming chat via SSE (fetch + ReadableStream)
+export async function streamChat({ session_id, message, context }, { onDelta, onStart, onDone, onError, signal }) {
+  const res = await fetch(`${API}/chat/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id, message, context: context || null }),
+    signal,
+  });
+  if (!res.ok || !res.body) {
+    onError?.(new Error(`HTTP ${res.status}`));
+    return;
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf("\n\n")) !== -1) {
+      const raw = buf.slice(0, idx);
+      buf = buf.slice(idx + 2);
+      const lines = raw.split("\n");
+      let event = "message";
+      let data = "";
+      for (const l of lines) {
+        if (l.startsWith("event:")) event = l.slice(6).trim();
+        else if (l.startsWith("data:")) data += l.slice(5).trim();
+      }
+      if (!data) continue;
+      try {
+        const obj = JSON.parse(data);
+        if (event === "start") onStart?.(obj);
+        else if (event === "done") onDone?.(obj);
+        else if (event === "error") onError?.(new Error(obj.error || "stream error"));
+        else if (obj.delta) onDelta?.(obj.delta);
+      } catch {}
+    }
+  }
+  onDone?.();
+}
+
 export const generateItinerary = (payload) =>
   http.post("/itinerary/generate", payload).then((r) => r.data);
 

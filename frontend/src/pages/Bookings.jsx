@@ -5,16 +5,16 @@ import { getSessionId } from "@/lib/session";
 import { toast } from "sonner";
 
 const TYPES = [
-  { key: "flight", label: "Flight", icon: Plane },
-  { key: "train", label: "Train", icon: TrainFront },
-  { key: "bus", label: "Bus", icon: Bus },
+  { key: "bus", label: "Local Bus", icon: Bus },
   { key: "metro", label: "Metro", icon: TramFront },
+  { key: "train", label: "Train", icon: TrainFront },
+  { key: "flight", label: "Flight", icon: Plane },
 ];
 
 export default function Bookings() {
-  const [type, setType] = useState("flight");
+  const [type, setType] = useState("bus");
   const [origin, setOrigin] = useState("Bangalore");
-  const [destination, setDestination] = useState("Kochi");
+  const [destination, setDestination] = useState("Mysore");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -34,7 +34,7 @@ export default function Bookings() {
   };
 
   const book = async (opt) => {
-    if (!passenger.trim()) return toast.error("Enter passenger name");
+    if (!passenger.trim()) return toast.error("Enter passenger name first");
     const booking = await createBooking({
       session_id: getSessionId(),
       type, option_id: opt.id, passenger_name: passenger.trim(),
@@ -44,12 +44,34 @@ export default function Bookings() {
     refresh();
   };
 
+  const popularRoutes = [
+    { from: "Bangalore", to: "Mysore", type: "bus" },
+    { from: "Delhi", to: "Agra", type: "train" },
+    { from: "Mumbai", to: "Goa", type: "train" },
+    { from: "Chennai", to: "Pondicherry", type: "bus" },
+    { from: "Kochi", to: "Ernakulam", type: "metro" },
+    { from: "Delhi", to: "Mumbai", type: "flight" },
+  ];
+
+  const setRoute = (r) => { setOrigin(r.from); setDestination(r.to); setType(r.type); setResults([]); };
+
   return (
     <div className="max-w-7xl mx-auto px-6 py-10">
       <div className="mb-8">
         <div className="text-xs uppercase tracking-widest text-[var(--tm-orange)] font-semibold">Transit Marketplace</div>
-        <h1 className="font-display font-bold text-4xl md:text-5xl mt-1">Book flights, trains, buses & metro</h1>
-        <p className="text-[var(--tm-body)] mt-2 max-w-2xl">Simulated live-search with realistic timing and prices. Bookings are stored locally to your session.</p>
+        <h1 className="font-display font-bold text-4xl md:text-5xl mt-1">Book local bus, metro, train & flights</h1>
+        <p className="text-[var(--tm-body)] mt-2 max-w-2xl">One place for last-mile buses, city metro passes, long-distance trains and domestic flights. Live simulated search, instant PNR, bookings stored to your session.</p>
+      </div>
+
+      <div className="mb-6">
+        <div className="text-[10px] uppercase tracking-widest text-[var(--tm-muted)] font-semibold mb-2">Popular Routes</div>
+        <div className="flex flex-wrap gap-2">
+          {popularRoutes.map((r, i) => (
+            <button key={i} className="chip" onClick={() => setRoute(r)} data-testid={`popular-route-${i}`}>
+              {r.from} → {r.to} · {r.type}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="card-soft p-5 mb-6">

@@ -1,52 +1,126 @@
 import { useEffect, useRef, useState } from "react";
-import { Bot, Send, Sparkles, Trash2, X } from "lucide-react";
-import { sendChat, getChatHistory, clearChat } from "@/lib/api";
+import { Bot, Send, Sparkles, Trash2, X, Square, User } from "lucide-react";
+import { streamChat, getChatHistory, clearChat } from "@/lib/api";
 import { getSessionId } from "@/lib/session";
 
 const FAST_TRIGGERS = [
-  "Plan My Trip",
-  "Modify My Trip",
-  "Find Nearby Places",
-  "Find Food",
-  "Find Hotels",
-  "What Can I Do Here?",
-  "Check My Budget",
-  "Ask About My Trip",
+  "Plan a 5-day Kerala trip",
+  "Best time to visit Ladakh",
+  "Cheap eats in Bangkok",
+  "Metro route in Paris",
+  "Budget breakup for Bali",
+  "Hidden gems in Rajasthan",
 ];
+
+// Very small markdown renderer: paragraphs, **bold**, *italic*, `code`, bullet lists, numbered lists, line breaks
+function renderMarkdown(text) {
+  if (!text) return null;
+  const lines = text.split("\n");
+  const blocks = [];
+  let listBuf = null; // {ordered, items:[]}
+
+  const flushList = () => {
+    if (!listBuf) return;
+    blocks.push({ kind: listBuf.ordered ? "ol" : "ul", items: listBuf.items });
+    listBuf = null;
+  };
+
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    const ul = line.match(/^\s*(?:[-•*])\s+(.*)$/);
+    const ol = line.match(/^\s*(\d+)\.\s+(.*)$/);
+    if (ul) {
+      if (!listBuf || listBuf.ordered) { flushList(); listBuf = { ordered: false, items: [] }; }
+      listBuf.items.push(ul[1]);
+    } else if (ol) {
+      if (!listBuf || !listBuf.ordered) { flushList(); listBuf = { ordered: true, items: [] }; }
+      listBuf.items.push(ol[2]);
+    } else if (line.trim() === "") {
+      flushList();
+      blocks.push({ kind: "br" });
+    } else {
+      flushList();
+      blocks.push({ kind: "p", text: line });
+    }
+  }
+  flushList();
+
+  const inline = (s) => {
+    const parts = [];
+    // handle **bold**, *italic*, `code`
+    const regex = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
+    let last = 0; let m; let i = 0;
+    while ((m = regex.exec(s)) !== null) {
+      if (m.index > last) parts.push(s.slice(last, m.index));
+      const tok = m[0];
+      if (tok.startsWith("**")) parts.push(<strong key={i++}>{tok.slice(2, -2)}</strong>);
+      else if (tok.startsWith("`")) parts.push(<code key={i++} className="bg-black/10 rounded px-1 py-0.5 text-[11px]">{tok.slice(1, -1)}</code>);
+      else parts.push(<em key={i++}>{tok.slice(1, -1)}</em>);
+      last = m.index + tok.length;
+    }
+    if (last < s.length) parts.push(s.slice(last));
+    return parts;
+  };
+
+  return blocks.map((b, i) => {
+    if (b.kind === "br") return <div key={i} className="h-2" />;
+    if (b.kind === "ul") return <ul key={i} className="list-disc pl-5 space-y-1">{b.items.map((it, j) => <li key={j}>{inline(it)}</li>)}</ul>;
+    if (b.kind === "ol") return <ol key={i} className="list-decimal pl-5 space-y-1">{b.items.map((it, j) => <li key={j}>{inline(it)}</li>)}</ol>;
+    return <p key={i} className="leading-relaxed">{inline(b.text)}</p>;
+  });
+}
 
 export default function AIConcierge({ context, open, onClose }) {
   const sid = getSessionId();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
   const scrollRef = useRef(null);
+  const abortRef = useRef(null);
 
   useEffect(() => {
     if (!open) return;
-    getChatHistory(sid).then((docs) => setMessages(docs)).catch(() => {});
+    getChatHistory(sid).then(setMessages).catch(() => {});
   }, [open, sid]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, streaming]);
+
+  const stop = () => { abortRef.current?.abort(); abortRef.current = null; setStreaming(false); };
 
   const send = async (text) => {
     const t = (text ?? input).trim();
-    if (!t || loading) return;
+    if (!t || streaming) return;
     setInput("");
-    const userMsg = { role: "user", content: t, id: `tmp-${Date.now()}` };
-    setMessages((m) => [...m, userMsg]);
-    setLoading(true);
+    const userMsg = { role: "user", content: t, id: `u-${Date.now()}` };
+    const asstId = `a-${Date.now()}`;
+    setMessages((m) => [...m, userMsg, { role: "assistant", content: "", id: asstId, streaming: true }]);
+    setStreaming(true);
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
+    let acc = "";
     try {
-      const res = await sendChat({ session_id: sid, message: t, context: context || null });
-      setMessages((m) => [...m, { role: "assistant", content: res.reply, id: res.message_id }]);
-    } catch (e) {
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", content: "Hmm, I couldn't reach the travel intelligence engine. Please try again in a moment.", id: `err-${Date.now()}` },
-      ]);
+      await streamChat(
+        { session_id: sid, message: t, context: context || null },
+        {
+          onDelta: (d) => {
+            acc += d;
+            setMessages((m) => m.map((x) => (x.id === asstId ? { ...x, content: acc } : x)));
+          },
+          onDone: () => {
+            setMessages((m) => m.map((x) => (x.id === asstId ? { ...x, streaming: false } : x)));
+          },
+          onError: () => {
+            setMessages((m) => m.map((x) => (x.id === asstId ? { ...x, content: acc || "Sorry, the AI is briefly unavailable. Please retry.", streaming: false } : x)));
+          },
+          signal: ctrl.signal,
+        }
+      );
     } finally {
-      setLoading(false);
+      setStreaming(false);
+      abortRef.current = null;
     }
   };
 
@@ -56,18 +130,18 @@ export default function AIConcierge({ context, open, onClose }) {
 
   return (
     <aside
-      className="fixed right-4 top-20 bottom-4 w-[380px] max-w-[92vw] flex flex-col card-soft z-40"
+      className="fixed right-4 top-20 bottom-4 w-[420px] max-w-[95vw] flex flex-col card-soft z-40"
       data-testid="ai-concierge-panel"
     >
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--tm-border)]">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-[var(--tm-orange)] grid place-items-center text-white">
-            <Bot size={16} />
+          <div className="w-9 h-9 rounded-full bg-[var(--tm-orange)] grid place-items-center text-white">
+            <Bot size={18} />
           </div>
           <div>
             <div className="font-display font-bold text-sm">TravelMate Assistant</div>
             <div className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" /> Online · Llama 3.3
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" /> Online · Streaming
             </div>
           </div>
         </div>
@@ -81,62 +155,64 @@ export default function AIConcierge({ context, open, onClose }) {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1.5 px-3 py-2 border-b border-[var(--tm-border)] bg-[#fdf3ec]">
-        {FAST_TRIGGERS.slice(0, 6).map((t) => (
-          <button key={t} className="chip text-[11px]" onClick={() => send(t)} data-testid={`chip-${t.replace(/\s+/g, "-").toLowerCase()}`}>
-            {t}
-          </button>
-        ))}
-      </div>
-
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3 bg-[#fffaf6]">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#fffaf6]">
         {messages.length === 0 && (
-          <div className="text-center py-8 text-[var(--tm-muted)] text-sm">
-            <Sparkles className="mx-auto mb-2 text-[var(--tm-orange)]" />
-            Hola! I&apos;m your TravelMate AI companion. Want to reroute any stop, adjust budget, or add unspoiled food spots to your Kerala Nature Escape? Just type below!
+          <div className="text-center py-8">
+            <div className="w-14 h-14 rounded-full bg-[var(--tm-orange)] text-white grid place-items-center mx-auto"><Sparkles /></div>
+            <div className="mt-3 font-display font-bold text-lg">Ask me anything travel</div>
+            <p className="text-sm text-[var(--tm-muted)] mt-1 max-w-xs mx-auto">Plan itineraries, decode metros, find hidden cafés, or reroute your trip live.</p>
+            <div className="flex flex-wrap gap-1.5 justify-center mt-4">
+              {FAST_TRIGGERS.map((t) => (
+                <button key={t} className="chip text-[11px]" onClick={() => send(t)} data-testid={`chip-${t.split(" ")[0].toLowerCase()}`}>{t}</button>
+              ))}
+            </div>
           </div>
         )}
         {messages.map((m) => (
-          <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+          <div key={m.id} className={`flex gap-2 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
+            <div className={`w-7 h-7 rounded-full grid place-items-center shrink-0 ${m.role === "user" ? "bg-black text-white" : "bg-[var(--tm-orange)] text-white"}`}>
+              {m.role === "user" ? <User size={14} /> : <Bot size={14} />}
+            </div>
             <div
-              className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap ${
+              className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm ${
                 m.role === "user"
                   ? "bg-[var(--tm-orange)] text-white rounded-tr-sm"
                   : "bg-white border border-[var(--tm-border)] text-[var(--tm-ink)] rounded-tl-sm"
               }`}
               data-testid={`chat-msg-${m.role}`}
             >
-              {m.content}
+              <div className="prose-sm">
+                {m.role === "assistant" ? renderMarkdown(m.content) : <span className="whitespace-pre-wrap">{m.content}</span>}
+                {m.streaming && (
+                  <span className="inline-block w-1.5 h-4 align-[-2px] ml-0.5 bg-[var(--tm-orange)] animate-pulse rounded-sm" />
+                )}
+              </div>
             </div>
           </div>
         ))}
-        {loading && (
-          <div className="flex justify-start">
-            <div className="rounded-2xl bg-white border border-[var(--tm-border)] px-3.5 py-2.5 text-sm text-[var(--tm-muted)]">
-              <span className="inline-flex gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--tm-orange)] animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--tm-orange)] animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--tm-orange)] animate-bounce" style={{ animationDelay: "300ms" }} />
-              </span>
-            </div>
-          </div>
-        )}
       </div>
 
       <form
-        className="p-3 border-t border-[var(--tm-border)] flex items-center gap-2"
+        className="p-3 border-t border-[var(--tm-border)] flex items-center gap-2 bg-white rounded-b-2xl"
         onSubmit={(e) => { e.preventDefault(); send(); }}
       >
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about routes, food, hidden gems, or budget..."
+          placeholder="Message TravelMate AI…"
           className="flex-1 rounded-full border border-[var(--tm-border)] px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[var(--tm-orange)]/40 bg-white"
           data-testid="chat-input"
+          disabled={streaming}
         />
-        <button type="submit" className="w-10 h-10 rounded-full bg-[var(--tm-orange)] text-white grid place-items-center hover:bg-[var(--tm-orange-hover)] disabled:opacity-50" disabled={loading} data-testid="chat-send">
-          <Send size={16} />
-        </button>
+        {streaming ? (
+          <button type="button" onClick={stop} className="w-10 h-10 rounded-full bg-black text-white grid place-items-center hover:opacity-90" data-testid="chat-stop">
+            <Square size={14} fill="currentColor" />
+          </button>
+        ) : (
+          <button type="submit" className="w-10 h-10 rounded-full bg-[var(--tm-orange)] text-white grid place-items-center hover:bg-[var(--tm-orange-hover)] disabled:opacity-50" data-testid="chat-send">
+            <Send size={16} />
+          </button>
+        )}
       </form>
     </aside>
   );

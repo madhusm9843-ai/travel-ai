@@ -52,7 +52,7 @@ export default function Home() {
                 <div className="font-display font-bold text-2xl text-white">Kerala, India</div>
                 <div className="text-[11px] text-white/80 mt-1">Backwaters, hills, spice gardens · clocked ‘hyper-explorer’ favourite</div>
               </div>
-              <span className="absolute top-4 right-4 badge-match">4.9★</span>
+              <span className="absolute top-4 right-4 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest bg-[var(--tm-orange)] text-white">Featured</span>
             </div>
           </div>
           <div className="absolute -bottom-4 -left-4 card-soft p-3 max-w-[220px] rotate-[-4deg] hidden md:block">
@@ -67,15 +67,15 @@ export default function Home() {
       <section className="pb-16">
         <div className="flex items-end justify-between mb-6">
           <div>
-            <h2 className="text-3xl md:text-4xl font-display font-bold">Popular Places in India</h2>
-            <div className="text-xs uppercase tracking-widest text-[var(--tm-muted)] mt-1">Tap to see</div>
+            <h2 className="text-3xl md:text-4xl font-display font-bold">Popular Places to Explore</h2>
+            <div className="text-xs uppercase tracking-widest text-[var(--tm-muted)] mt-1">India & across the world</div>
           </div>
           <Link to="/explore" className="text-[var(--tm-orange)] font-semibold text-sm hover:underline" data-testid="see-all-dests">
             Explore all destinations →
           </Link>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger">
-          {dests.slice(0, 4).map((d) => (
+          {dests.slice(0, 8).map((d) => (
             <DestinationCard key={d.id} d={d} />
           ))}
         </div>

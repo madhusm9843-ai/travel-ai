@@ -87,81 +87,128 @@ class BookingRequest(BaseModel):
 
 # ---------- Destinations catalog ----------
 DESTINATIONS = [
-    {
-        "id": "kerala",
-        "name": "Kerala",
-        "tagline": "Backwaters, Hills & Coastal Charm",
-        "match": 95,
-        "days": "5 Days",
-        "image": "https://images.unsplash.com/photo-1624554305378-0f440dd3a8c1?crop=entropy&cs=srgb&fm=jpg&q=85",
-        "lat": 10.8505, "lng": 76.2711,
-        "highlights": ["Alleppey Backwaters", "Munnar Tea Gardens", "Fort Kochi", "Wayanad"],
-        "best_season": "Sep – Mar",
-    },
-    {
-        "id": "goa",
-        "name": "Goa",
-        "tagline": "Beaches, Cafés & Sunsets",
-        "match": 88,
-        "days": "3–4 Days",
-        "image": "https://images.unsplash.com/photo-1685271552630-9bc169185566?crop=entropy&cs=srgb&fm=jpg&q=85",
-        "lat": 15.2993, "lng": 74.1240,
-        "highlights": ["Palolem Beach", "Old Goa Churches", "Anjuna Flea Market", "Dudhsagar Falls"],
-        "best_season": "Nov – Feb",
-    },
-    {
-        "id": "rajasthan",
-        "name": "Rajasthan",
-        "tagline": "Forts, Palaces & Desert Nights",
-        "match": 92,
-        "days": "6 Days",
-        "image": "https://images.unsplash.com/photo-1713682995521-22ec819b50ac?crop=entropy&cs=srgb&fm=jpg&q=85",
-        "lat": 26.9124, "lng": 75.7873,
-        "highlights": ["Jaipur City Palace", "Udaipur Lakes", "Jaisalmer Dunes", "Pushkar"],
-        "best_season": "Oct – Mar",
-    },
-    {
-        "id": "himachal",
-        "name": "Himachal Pradesh",
-        "tagline": "Snow, Alpine Valleys & Villages",
-        "match": 94,
-        "days": "5 Days",
-        "image": "https://images.unsplash.com/photo-1641310045101-fd176a42cd44?crop=entropy&cs=srgb&fm=jpg&q=85",
-        "lat": 31.1048, "lng": 77.1734,
-        "highlights": ["Manali", "Spiti Valley", "Kasol", "Shimla"],
-        "best_season": "Mar – Jun & Oct – Feb",
-    },
-    {
-        "id": "tamilnadu",
-        "name": "Tamil Nadu",
-        "tagline": "Temples, Coasts & Hill Stations",
-        "match": 86,
-        "days": "5 Days",
-        "image": "https://images.unsplash.com/photo-1621351183012-e2f9972dd9bf?crop=entropy&cs=srgb&fm=jpg&q=85",
-        "lat": 11.1271, "lng": 78.6569,
-        "highlights": ["Madurai Meenakshi", "Pondicherry", "Ooty", "Mahabalipuram"],
-        "best_season": "Nov – Mar",
-    },
-    {
-        "id": "karnataka",
-        "name": "Karnataka",
-        "tagline": "Palaces, Coffee Hills & Coastline",
-        "match": 89,
-        "days": "5 Days",
-        "image": "https://images.unsplash.com/photo-1600100397917-8b47f0d7fa26?crop=entropy&cs=srgb&fm=jpg&q=85",
-        "lat": 15.3173, "lng": 75.7139,
-        "highlights": ["Coorg", "Hampi", "Mysore Palace", "Gokarna"],
-        "best_season": "Oct – Mar",
-    },
+    # ---- India ----
+    {"id": "kerala", "region": "India", "name": "Kerala", "country": "India",
+     "tagline": "Backwaters, Hills & Coastal Charm", "days": "5 Days",
+     "image": "https://images.unsplash.com/photo-1624554305378-0f440dd3a8c1?crop=entropy&cs=srgb&fm=jpg&q=85",
+     "lat": 10.8505, "lng": 76.2711,
+     "highlights": ["Alleppey Backwaters", "Munnar Tea Gardens", "Fort Kochi", "Wayanad"],
+     "best_season": "Sep – Mar"},
+    {"id": "goa", "region": "India", "name": "Goa", "country": "India",
+     "tagline": "Beaches, Cafés & Sunsets", "days": "3–4 Days",
+     "image": "https://images.unsplash.com/photo-1685271552630-9bc169185566?crop=entropy&cs=srgb&fm=jpg&q=85",
+     "lat": 15.2993, "lng": 74.1240,
+     "highlights": ["Palolem Beach", "Old Goa Churches", "Anjuna Flea Market", "Dudhsagar Falls"],
+     "best_season": "Nov – Feb"},
+    {"id": "rajasthan", "region": "India", "name": "Rajasthan", "country": "India",
+     "tagline": "Forts, Palaces & Desert Nights", "days": "6 Days",
+     "image": "https://images.unsplash.com/photo-1713682995521-22ec819b50ac?crop=entropy&cs=srgb&fm=jpg&q=85",
+     "lat": 26.9124, "lng": 75.7873,
+     "highlights": ["Jaipur City Palace", "Udaipur Lakes", "Jaisalmer Dunes", "Pushkar"],
+     "best_season": "Oct – Mar"},
+    {"id": "himachal", "region": "India", "name": "Himachal Pradesh", "country": "India",
+     "tagline": "Snow, Alpine Valleys & Villages", "days": "5 Days",
+     "image": "https://images.unsplash.com/photo-1641310045101-fd176a42cd44?crop=entropy&cs=srgb&fm=jpg&q=85",
+     "lat": 31.1048, "lng": 77.1734,
+     "highlights": ["Manali", "Spiti Valley", "Kasol", "Shimla"],
+     "best_season": "Mar – Jun & Oct – Feb"},
+    {"id": "tamilnadu", "region": "India", "name": "Tamil Nadu", "country": "India",
+     "tagline": "Temples, Coasts & Hill Stations", "days": "5 Days",
+     "image": "https://images.unsplash.com/photo-1621351183012-e2f9972dd9bf?crop=entropy&cs=srgb&fm=jpg&q=85",
+     "lat": 11.1271, "lng": 78.6569,
+     "highlights": ["Madurai Meenakshi", "Pondicherry", "Ooty", "Mahabalipuram"],
+     "best_season": "Nov – Mar"},
+    {"id": "karnataka", "region": "India", "name": "Karnataka", "country": "India",
+     "tagline": "Palaces, Coffee Hills & Coastline", "days": "5 Days",
+     "image": "https://images.unsplash.com/photo-1600100397917-8b47f0d7fa26?crop=entropy&cs=srgb&fm=jpg&q=85",
+     "lat": 15.3173, "lng": 75.7139,
+     "highlights": ["Coorg", "Hampi", "Mysore Palace", "Gokarna"],
+     "best_season": "Oct – Mar"},
+    {"id": "ladakh", "region": "India", "name": "Ladakh", "country": "India",
+     "tagline": "Moonscapes, Monasteries & High-Altitude Lakes", "days": "7 Days",
+     "image": "https://images.unsplash.com/photo-1589308078055-15b7a4b2c8b6?crop=entropy&cs=srgb&fm=jpg&q=85",
+     "lat": 34.1526, "lng": 77.5771,
+     "highlights": ["Pangong Tso", "Nubra Valley", "Leh Palace", "Magnetic Hill"],
+     "best_season": "May – Sep"},
+    {"id": "andaman", "region": "India", "name": "Andaman Islands", "country": "India",
+     "tagline": "Turquoise Waters & Coral Reefs", "days": "5 Days",
+     "image": "https://images.unsplash.com/photo-1583212292454-1fe6229603b7?crop=entropy&cs=srgb&fm=jpg&q=85",
+     "lat": 11.7401, "lng": 92.6586,
+     "highlights": ["Radhanagar Beach", "Cellular Jail", "Havelock", "Neil Island"],
+     "best_season": "Oct – May"},
+    {"id": "uttarakhand", "region": "India", "name": "Uttarakhand", "country": "India",
+     "tagline": "Rishikesh, Rivers & Himalayan Trails", "days": "5 Days",
+     "image": "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?crop=entropy&cs=srgb&fm=jpg&q=85",
+     "lat": 30.0668, "lng": 79.0193,
+     "highlights": ["Rishikesh", "Nainital", "Valley of Flowers", "Auli Skiing"],
+     "best_season": "Mar – Jun & Sep – Nov"},
+    {"id": "meghalaya", "region": "India", "name": "Meghalaya", "country": "India",
+     "tagline": "Living Root Bridges & Cloud Villages", "days": "5 Days",
+     "image": "https://images.unsplash.com/photo-1667980148516-e4e4edd44a45?crop=entropy&cs=srgb&fm=jpg&q=85",
+     "lat": 25.4670, "lng": 91.3662,
+     "highlights": ["Cherrapunji", "Dawki River", "Mawlynnong", "Nohkalikai Falls"],
+     "best_season": "Oct – May"},
+
+    # ---- International ----
+    {"id": "bali", "region": "International", "name": "Bali", "country": "Indonesia",
+     "tagline": "Rice Terraces, Beach Clubs & Temples", "days": "7 Days",
+     "image": "https://images.unsplash.com/photo-1537996194471-e657df975ab4?crop=entropy&cs=srgb&fm=jpg&q=85",
+     "lat": -8.3405, "lng": 115.0920,
+     "highlights": ["Ubud", "Uluwatu Temple", "Seminyak", "Nusa Penida"],
+     "best_season": "Apr – Oct"},
+    {"id": "tokyo", "region": "International", "name": "Tokyo", "country": "Japan",
+     "tagline": "Neon Nights, Sushi & Ancient Shrines", "days": "6 Days",
+     "image": "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?crop=entropy&cs=srgb&fm=jpg&q=85",
+     "lat": 35.6762, "lng": 139.6503,
+     "highlights": ["Shibuya", "Asakusa", "Mount Fuji Day Trip", "TeamLab Planets"],
+     "best_season": "Mar – May & Sep – Nov"},
+    {"id": "paris", "region": "International", "name": "Paris", "country": "France",
+     "tagline": "Boulevards, Bistros & Boulangeries", "days": "5 Days",
+     "image": "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?crop=entropy&cs=srgb&fm=jpg&q=85",
+     "lat": 48.8566, "lng": 2.3522,
+     "highlights": ["Louvre", "Eiffel Tower", "Montmartre", "Versailles"],
+     "best_season": "Apr – Jun & Sep – Oct"},
+    {"id": "dubai", "region": "International", "name": "Dubai", "country": "UAE",
+     "tagline": "Skylines, Souks & Desert Safaris", "days": "4 Days",
+     "image": "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?crop=entropy&cs=srgb&fm=jpg&q=85",
+     "lat": 25.2048, "lng": 55.2708,
+     "highlights": ["Burj Khalifa", "Palm Jumeirah", "Old Dubai", "Desert Dunes"],
+     "best_season": "Nov – Mar"},
+    {"id": "iceland", "region": "International", "name": "Iceland", "country": "Iceland",
+     "tagline": "Glaciers, Geysers & Northern Lights", "days": "7 Days",
+     "image": "https://images.unsplash.com/photo-1520175480921-4edfa2983e0f?crop=entropy&cs=srgb&fm=jpg&q=85",
+     "lat": 64.9631, "lng": -19.0208,
+     "highlights": ["Golden Circle", "Blue Lagoon", "Vík Beach", "Jökulsárlón"],
+     "best_season": "Sep – Mar (auroras)"},
+    {"id": "swiss-alps", "region": "International", "name": "Swiss Alps", "country": "Switzerland",
+     "tagline": "Peaks, Scenic Rails & Chocolate Villages", "days": "6 Days",
+     "image": "https://images.unsplash.com/photo-1531366936337-7c912a4589a7?crop=entropy&cs=srgb&fm=jpg&q=85",
+     "lat": 46.5197, "lng": 7.9597,
+     "highlights": ["Interlaken", "Zermatt", "Jungfraujoch", "Lucerne"],
+     "best_season": "Jun – Sep & Dec – Feb"},
+    {"id": "phuket", "region": "International", "name": "Phuket", "country": "Thailand",
+     "tagline": "Emerald Bays, Longtails & Night Markets", "days": "5 Days",
+     "image": "https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?crop=entropy&cs=srgb&fm=jpg&q=85",
+     "lat": 7.8804, "lng": 98.3923,
+     "highlights": ["Phi Phi Islands", "Old Phuket Town", "Big Buddha", "James Bond Island"],
+     "best_season": "Nov – Apr"},
+    {"id": "singapore", "region": "International", "name": "Singapore", "country": "Singapore",
+     "tagline": "Gardens, Hawker Food & Skyparks", "days": "4 Days",
+     "image": "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?crop=entropy&cs=srgb&fm=jpg&q=85",
+     "lat": 1.3521, "lng": 103.8198,
+     "highlights": ["Marina Bay", "Gardens by the Bay", "Sentosa", "Little India"],
+     "best_season": "Feb – Apr"},
 ]
 
 
 # ---------- AI Helpers ----------
 SYSTEM_PROMPT = (
-    "You are TravelMate AI, an expert Indian travel concierge. "
-    "You craft hyper-personalized, day-by-day itineraries with local secret gems, honest budget breakdowns, "
-    "cultural festivals near travel dates, food recommendations that respect dietary preferences, "
-    "and practical transit tips. Always answer in a warm, editorial tone. Use short paragraphs. "
+    "You are TravelMate AI, a world-class travel concierge. "
+    "You craft hyper-personalized, day-by-day itineraries for destinations across India AND international hotspots "
+    "(Bali, Tokyo, Paris, Dubai, Iceland, Swiss Alps, Phuket, Singapore, etc.). "
+    "You share local secret gems, honest budget breakdowns in the traveller's currency, cultural festivals near travel dates, "
+    "food recommendations that respect dietary preferences, and practical transit tips (metro, bus, train, flight). "
+    "Answer in a warm, editorial tone. Use short paragraphs, bullet lists with '- ' or '• ', and **bold** for emphasis. "
     "When asked for structured plans, respond in the requested JSON format only."
 )
 
@@ -229,6 +276,73 @@ async def chat(req: ChatRequest):
     await db.chat_messages.insert_one(assistant_msg.model_dump())
 
     return {"reply": reply, "message_id": assistant_msg.id}
+
+
+@api_router.post("/chat/stream")
+async def chat_stream(req: ChatRequest):
+    """SSE streaming endpoint — yields token-by-token like ChatGPT/Claude."""
+    history_docs = await db.chat_messages.find(
+        {"session_id": req.session_id}, {"_id": 0}
+    ).sort("timestamp", 1).to_list(30)
+
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    if req.context:
+        messages.append({"role": "system", "content": "Current trip context: " + json.dumps(req.context)[:1500]})
+    for m in history_docs[-20:]:
+        messages.append({"role": m["role"], "content": m["content"]})
+    messages.append({"role": "user", "content": req.message})
+
+    user_msg = ChatMessage(session_id=req.session_id, role="user", content=req.message)
+    await db.chat_messages.insert_one(user_msg.model_dump())
+
+    assistant_id = str(uuid.uuid4())
+
+    async def event_gen():
+        yield f"event: start\ndata: {json.dumps({'message_id': assistant_id})}\n\n"
+        buffer_text = ""
+        payload = {
+            "model": GROQ_MODEL,
+            "messages": messages,
+            "temperature": 0.7,
+            "max_tokens": 3000,
+            "stream": True,
+        }
+        headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+        try:
+            async with httpx.AsyncClient(timeout=120) as hc:
+                async with hc.stream("POST", GROQ_URL, json=payload, headers=headers) as r:
+                    if r.status_code != 200:
+                        err_body = (await r.aread()).decode(errors="ignore")[:300]
+                        yield f"event: error\ndata: {json.dumps({'error': err_body})}\n\n"
+                        return
+                    async for line in r.aiter_lines():
+                        if not line or not line.startswith("data:"):
+                            continue
+                        data = line[5:].strip()
+                        if data == "[DONE]":
+                            break
+                        try:
+                            obj = json.loads(data)
+                            delta = obj.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                            if delta:
+                                buffer_text += delta
+                                yield f"data: {json.dumps({'delta': delta})}\n\n"
+                        except Exception:
+                            continue
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps({'error': str(e)[:200]})}\n\n"
+
+        # persist final message
+        if buffer_text:
+            assistant_msg = ChatMessage(id=assistant_id, session_id=req.session_id, role="assistant", content=buffer_text)
+            await db.chat_messages.insert_one(assistant_msg.model_dump())
+        yield f"event: done\ndata: {json.dumps({'message_id': assistant_id})}\n\n"
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
+    )
 
 
 @api_router.get("/chat/{session_id}")
