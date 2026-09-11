@@ -1,0 +1,52 @@
+{
+  "summary": "First-finish smoke test of TravelMate AI. Backend: 10/10 critical endpoints working (GET /, destinations list/detail/404, chat POST/GET/DELETE with Groq AI reply, itinerary generate, trips GET/DELETE, transport search flight/train, bookings POST/GET, festivals). Frontend: home hero, plan page, map with Leaflet + satellite toggle, AI concierge chat (send + AI reply visible), bookings flow (search + book + PNR in Your Bookings) all work.",
+  "tested_scope": ["backend", "frontend", "integration"],
+  "passed": [
+    "GET /api/ -> {service, status:ok}",
+    "GET /api/destinations returns 6 destinations (kerala, goa, rajasthan, himachal, tamilnadu, karnataka)",
+    "GET /api/destinations/kerala 200, /api/destinations/xyz 404",
+    "POST /api/chat returns AI reply from Groq openai/gpt-oss-120b (reply: 'Namaste')",
+    "GET /api/chat/{session_id} returns saved messages, DELETE clears them (ok:true)",
+    "POST /api/itinerary/generate returns Trip with itinerary[0].days and itinerary[0].budget_breakdown",
+    "GET /api/trips?session_id works; DELETE /api/trips/{id} returns ok:true",
+    "GET /api/transport/search for flight & train returns options array (uses origin/destination params)",
+    "POST /api/bookings creates booking with PNR and status=CONFIRMED; GET /api/bookings lists them",
+    "GET /api/festivals?destination=&date= returns festivals JSON",
+    "Frontend home page loads with hero-cta-plan and Plan My Trip CTA",
+    "Frontend /plan page has plan-dest-kerala and plan-submit testids",
+    "Frontend /map renders Leaflet container and map-layer-toggle click works",
+    "Frontend AI Concierge FAB opens chat, message sent, AI reply 'Namaste' shown in chat-msg elements",
+    "Frontend /bookings: flight type + search shows 5 book options; booking with passenger name creates CONFIRMED booking with PNR (e.g., TMAC38C8) displayed in Your Bookings"
+  ],
+  "failed": [
+    {
+      "area": "backend/itinerary quality",
+      "issue": "For a 4-day trip (2025-12-20 to 2025-12-23) the AI returned only itinerary[0].days length = 1. Structure is correct (title, summary, budget_breakdown, festivals, days) but day count does not match trip duration.",
+      "evidence": "POST /api/itinerary/generate response: itinerary[0].days has 1 entry for 4-day trip",
+      "priority": "MEDIUM"
+    },
+    {
+      "area": "frontend/bookings UX",
+      "issue": "Clicking Book without entering passenger name silently fails (no visible error). Once passenger name is filled, booking works end-to-end. Consider validating and surfacing an error.",
+      "evidence": "First booking click without pax name -> Your Bookings still shows 'No bookings yet.'; with pax name -> booking appears with PNR",
+      "priority": "LOW"
+    },
+    {
+      "area": "frontend/home",
+      "issue": "No elements matched [data-testid^='destination-card-'] on home page (destination cards likely only on Explore page). Not a blocker.",
+      "evidence": "querySelectorAll returned 0 on '/'",
+      "priority": "LOW"
+    }
+  ],
+  "action_items": [
+    "Investigate why Groq itinerary generation returns fewer days than trip duration (prompt/parsing) — may need to enforce day count in prompt or post-process to pad missing days.",
+    "Add client-side validation error on Bookings page when passenger name is empty before allowing Book click."
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "retest_needed": false,
+  "full_testing_deferred": true,
+  "notes": {
+    "mocked": "Transport search and bookings are MOCKED (random PNR, static option data) as declared in review request.",
+    "test_credentials": "No auth in app; no credentials needed."
+  }
+}

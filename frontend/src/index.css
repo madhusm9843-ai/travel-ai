@@ -1,0 +1,148 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Manrope:wght@300;400;500;600;700;800&display=swap');
+@import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    --tm-cream: #FDF7F2;
+    --tm-cream-2: #F3EAE1;
+    --tm-orange: #FF5A1F;
+    --tm-orange-hover: #E04810;
+    --tm-orange-light: #FFF0EB;
+    --tm-ink: #0F0F0F;
+    --tm-body: #4B4B4B;
+    --tm-muted: #7A7A7A;
+    --tm-border: #E8DFD5;
+}
+
+html, body, #root {
+    height: 100%;
+    background: var(--tm-cream);
+    color: var(--tm-ink);
+}
+
+body {
+    margin: 0;
+    font-family: 'Manrope', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-image:
+        radial-gradient(1200px 600px at -10% -10%, rgba(255, 90, 31, 0.06), transparent 60%),
+        radial-gradient(900px 500px at 110% 10%, rgba(255, 90, 31, 0.04), transparent 60%);
+}
+
+h1, h2, h3, h4, .font-display {
+    font-family: 'Bricolage Grotesque', serif;
+    letter-spacing: -0.02em;
+}
+
+.grain::before {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+    mix-blend-mode: multiply;
+    opacity: 0.035;
+    z-index: 1;
+}
+
+@layer base {
+    :root {
+        --background: 33 60% 97%;
+        --foreground: 0 0% 6%;
+        --card: 0 0% 100%;
+        --card-foreground: 0 0% 6%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 0 0% 6%;
+        --primary: 16 100% 56%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 28 33% 92%;
+        --secondary-foreground: 0 0% 6%;
+        --muted: 28 33% 92%;
+        --muted-foreground: 0 0% 40%;
+        --accent: 16 100% 96%;
+        --accent-foreground: 16 100% 40%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 28 25% 84%;
+        --input: 28 25% 84%;
+        --ring: 16 100% 56%;
+        --radius: 0.85rem;
+    }
+}
+
+@layer base {
+    * { @apply border-border; }
+    body { @apply bg-background text-foreground; }
+}
+
+/* Reusable classes */
+.pill-btn {
+    @apply inline-flex items-center gap-2 rounded-full px-6 py-3 font-semibold text-white;
+    background: var(--tm-orange);
+    transition: transform 0.15s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 8px 24px rgba(255, 90, 31, 0.28);
+}
+.pill-btn:hover { background: var(--tm-orange-hover); transform: translateY(-1px); }
+.pill-btn:active { transform: translateY(0) scale(0.98); }
+
+.pill-ghost {
+    @apply inline-flex items-center gap-2 rounded-full px-6 py-3 font-semibold text-[var(--tm-ink)] bg-white border border-[var(--tm-border)];
+    transition: transform 0.15s ease, background-color 0.2s ease;
+}
+.pill-ghost:hover { background: #fff8f3; transform: translateY(-1px); }
+
+.card-soft {
+    @apply rounded-2xl bg-white;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+    border: 1px solid var(--tm-border);
+}
+
+.chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold border;
+    border-color: var(--tm-border);
+    background: white;
+    color: var(--tm-ink);
+    transition: background-color 0.2s ease, transform 0.15s ease;
+}
+.chip:hover { background: #fff8f3; }
+.chip.active { background: var(--tm-orange); color: white; border-color: var(--tm-orange); }
+
+.badge-match {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold text-white;
+    background: var(--tm-orange);
+    box-shadow: 0 4px 12px rgba(255, 90, 31, 0.4);
+}
+
+.fade-up { animation: fadeUp 0.6s ease both; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.stagger > * { animation: fadeUp 0.5s ease both; }
+.stagger > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger > *:nth-child(2) { animation-delay: 0.12s; }
+.stagger > *:nth-child(3) { animation-delay: 0.19s; }
+.stagger > *:nth-child(4) { animation-delay: 0.26s; }
+.stagger > *:nth-child(5) { animation-delay: 0.33s; }
+.stagger > *:nth-child(6) { animation-delay: 0.40s; }
+
+.dest-img-wrap { overflow: hidden; }
+.dest-img { transition: transform 0.5s ease; }
+.dest-img-wrap:hover .dest-img { transform: scale(1.06); }
+
+/* Leaflet fixes */
+.leaflet-container { border-radius: 1rem; z-index: 0; }
+.leaflet-control-attribution { font-size: 10px !important; }
+
+.tm-marker {
+    background: var(--tm-orange);
+    border: 3px solid white;
+    border-radius: 999px;
+    width: 18px; height: 18px;
+    box-shadow: 0 4px 12px rgba(255, 90, 31, 0.5);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #d9c9b8; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #c9b39a; }

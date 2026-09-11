@@ -1,0 +1,115 @@
+{
+  "theme": "light",
+  "typography": {
+    "fonts": {
+      "heading": "'Bricolage Grotesque', serif",
+      "body": "'Manrope', sans-serif",
+      "instructions_to_main_agent": "Import 'Bricolage Grotesque' and 'Manrope' from Google Fonts in the main css or html file. DO NOT use Inter for anything."
+    },
+    "hierarchy": {
+      "h1": "text-5xl md:text-6xl tracking-tighter font-bold text-[#0F0F0F] leading-tight",
+      "h2": "text-3xl md:text-4xl tracking-tight font-bold text-[#0F0F0F]",
+      "h3": "text-xl md:text-2xl tracking-tight font-semibold text-[#0F0F0F]",
+      "body": "text-base text-[#4B4B4B] leading-relaxed",
+      "small": "text-sm text-[#7A7A7A] uppercase tracking-widest font-semibold"
+    }
+  },
+  "colors": {
+    "background": {
+      "primary": "#FDF7F2",
+      "secondary": "#F3EAE1",
+      "card": "#FFFFFF"
+    },
+    "primary": {
+      "main": "#FF5A1F",
+      "hover": "#E04810",
+      "light": "#FFF0EB"
+    },
+    "text": {
+      "primary": "#0F0F0F",
+      "secondary": "#4B4B4B",
+      "muted": "#7A7A7A",
+      "accent": "#FF5A1F"
+    },
+    "accents": {
+      "match_badge_bg": "#FF5A1F",
+      "match_badge_text": "#FFFFFF",
+      "chat_bubble_agent": "#FF5A1F",
+      "chat_bubble_user": "#FFFFFF"
+    }
+  },
+  "visual_enhancers": {
+    "grain": "Add a subtle CSS or SVG noise overlay (mix-blend-mode: multiply, opacity: 0.03) to the main background (#FDF7F2) to give an organic, tactile print feel.",
+    "shadows": "Use soft, layered ambient shadows for cards: shadow-[0_8px_30px_rgb(0,0,0,0.04)]. Avoid harsh default shadows.",
+    "borders": "Keep borders minimal. For structure, use a delicate 1px solid border of #E8DFD5.",
+    "buttons": "Primary CTAs MUST be pill-shaped (rounded-full) using #FF5A1F with high contrast hover states (darken to #E04810, scale slightly).",
+    "surface": "Never use fully transparent backgrounds for headers or overlays. Use solid or highly blurred glassmorphism with high saturation."
+  },
+  "components": {
+    "hero_section": "Asymmetric layout. Left: Massive H1 'Plan your perfect trip with generative AI' (highlight 'generative AI' in #FF5A1F), subtitle, and pill CTA. Right: A floating, vertical 'phone-style' destination card containing the hero image, slightly rotated or offset.",
+    "destination_cards": "Use rounded-2xl. Image covers top half. In the top right corner over the image, overlay a pill-shaped match percentage badge (e.g., '95% Match') with an orange bg and white text.",
+    "ai_concierge_panel": "A persistent floating or slide-out panel on the right side. The agent uses orange bubbles with white text. User uses white bubbles with dark text. Include pill-shaped fast-trigger chips above the input.",
+    "itinerary_timeline": "3-column layout or robust single column. Tabbed days (Day 1, Day 2) horizontally. Below tabs: vertical step-by-step schedule. Use bold, orange numbers inside circular elements for each stop. Include 'view on map' & 'get directions' micro-actions.",
+    "interactive_map": "Full-width or large section map utilizing Leaflet. Include toggle for OSM vs Esri Satellite view. Overlay floating filter chips (pill shaped) on top of the map. Show POI markers with custom styling.",
+    "feature_grid": "6-feature bento-style grid. Cards span different row/col sizes (e.g., 2x2, 1x2) to create visual tension and break symmetry.",
+    "bookings_module": "Simulated flow for Flights/Trains/Metro/Buses. Clean UI to search -> select seat/ticket -> confirm. Keep it visually aligned with the earthy/orange aesthetic.",
+    "live_trip_mode": "Dashboard view showing current location context, today's remaining flow, budget spent, and live weather. High density bento layout."
+  },
+  "layouts": {
+    "spacing": "Extremely generous. Use Tailwind classes like p-8, p-12, py-24. Containers must breathe. Do not crowd elements.",
+    "alignment": "Left-align dense text and headings. Avoid the 'center-everything disease'. Embrace asymmetry."
+  },
+  "motion": {
+    "hover": "Interactive cards lift slightly (-translate-y-1 or -translate-y-2) and gain a softer shadow. Destination images scale-105 inside hidden-overflow wrappers.",
+    "entrance": "Staggered fade-up (opacity 0 to 1, translate-y-4 to 0) for lists, grids, and itinerary days.",
+    "micro_interactions": "Smooth tab switching for itinerary days. Button scaling on :active."
+  },
+  "image_urls": {
+    "hero_floating_card": {
+      "url": "https://images.unsplash.com/photo-1616085490777-e329b0afc73c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNDR8MHwxfHNlYXJjaHwzfHx0cmF2ZWxlciUyMG1hcCUyMHN1bnNldHxlbnwwfHx8fDE3ODkxMzQ0NjN8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Silhouette of travelers at sunset. Use inside the right-side floating card in the Hero."
+    },
+    "destination_kerala": {
+      "url": "https://images.unsplash.com/photo-1624554305378-0f440dd3a8c1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDV8MHwxfHNlYXJjaHwxfHxrZXJhbGElMjBiYWNrd2F0ZXJzJTIwc3Vuc2V0fGVufDB8fHx8MTc4OTEzNDQ1Nnww&ixlib=rb-4.1.0&q=85",
+      "description": "Kerala backwaters at sunset. For Popular Destinations grid."
+    },
+    "destination_goa": {
+      "url": "https://images.unsplash.com/photo-1685271552630-9bc169185566?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MTN8MHwxfHNlYXJjaHwzfHxnb2ElMjBiZWFjaCUyMHBhbG0lMjB0cmVlc3xlbnwwfHx8fDE3ODkwMzQyODl8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Goa beach with palm trees at sunset. For Popular Destinations grid."
+    },
+    "destination_rajasthan": {
+      "url": "https://images.unsplash.com/photo-1713682995521-22ec819b50ac?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzh8MHwxfHNlYXJjaHwyfHxyYWphc3RoYW4lMjBwYWxhY2UlMjBkZXNlcnR8ZW58MHx8fHwxNzg5MTM0NDU3fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Rajasthan palace in the desert. For Popular Destinations grid."
+    },
+    "destination_himachal": {
+      "url": "https://images.unsplash.com/photo-1641310045101-fd176a42cd44?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjd8MHwxfHNlYXJjaHwyfHxoaW1hY2hhbCUyMG1vdW50YWlucyUyMHNub3d8ZW58MHx8fHwxNzg5MTM0NDU3fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Himachal snowy mountains at sunset. For Popular Destinations grid."
+    }
+  },
+  "iconography": {
+    "library": "lucide-react",
+    "instructions": "Use lucide-react for all icons. The AI agent avatar should be represented by the `Bot` or `Sparkles` icon with an orange background (#FF5A1F) and white icon color. Do not use generic AI emojis like 🤖."
+  },
+  "tech_stack_libraries": {
+    "map": "leaflet, react-leaflet, esri-leaflet (MUST include toggle for OSM / Satellite tiles).",
+    "ai_engine": "Groq API with Llama 3.3 70B (Backend integration).",
+    "components": "shadcn/ui primitives. Use Shadcn for calendars, dropdowns, popovers, and forms."
+  },
+  "universal_guidelines_for_main_agent": [
+    "You tend to converge toward generic, 'on distribution' outputs. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Implement the EXACT color palette: #FDF7F2 for main background, #FF5A1F for primary accents/CTAs, and deep black/charcoal for text.",
+    "DO NOT use Inter, Roboto, or standard sans-serif for headings. You MUST use Bricolage Grotesque (or Fraunces) for headings and Manrope for body text.",
+    "All interactive and key informational elements MUST include a `data-testid` attribute (e.g., `data-testid=\"plan-trip-cta\"`) to facilitate robust automated testing.",
+    "Never apply `transition: all`. Use specific transitions like `transition: transform 0.2s ease, opacity 0.2s ease` to avoid breaking transforms.",
+    "No generic centered layouts. Embrace grids, asymmetry, and negative space to guide flow.",
+    "Ensure 'Live Trip Mode', 'Trip Planner Form', and 'Bookings Module' are visually fleshed out with simulated interactivity. Do not just leave placeholders.",
+    "Only use Javascript/JSX (.js or .jsx). Do NOT use TypeScript (.tsx or .ts) since the environment dictates JS.",
+    "Use pill-shaped (rounded-full) elements heavily for buttons, filter chips, and match percentage badges."
+  ],
+  "accessibility": {
+    "contrast": "Ensure the text contrast against the cream background meets WCAG AA standards. The orange #FF5A1F must contrast well with white text.",
+    "focus_states": "Use highly visible focus rings (e.g., focus:ring-2 focus:ring-[#FF5A1F] focus:ring-offset-2 focus:ring-offset-[#FDF7F2]).",
+    "motion": "Respect prefers-reduced-motion for animations.",
+    "aria": "Add aria-labels to icon-only buttons (like map zoom, chat toggles)."
+  }
+}
