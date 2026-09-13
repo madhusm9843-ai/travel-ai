@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Sparkles, Wallet, Users, Calendar, Loader2 } from "lucide-react";
 import { generateItinerary, listDestinations } from "@/lib/api";
-import { getSessionId } from "@/lib/session";
 import { toast } from "sonner";
 
 const INTERESTS = [
@@ -62,7 +61,7 @@ export default function PlanTrip() {
     if (!form.budget || form.budget < 1000) return toast.error("Budget must be at least ₹1,000");
     setLoading(true);
     try {
-      const trip = await generateItinerary({ session_id: getSessionId(), ...form });
+      const trip = await generateItinerary({ ...form });
       toast.success("Your AI itinerary is ready!");
       nav(`/trips/${trip.id}`);
     } catch (err) {

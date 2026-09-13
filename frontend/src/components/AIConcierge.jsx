@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Bot, Send, Sparkles, Trash2, X, Square, User, MapPin, LocateFixed, ExternalLink, Phone } from "lucide-react";
 import { streamChat, chatNearby, getChatHistory, clearChat, NEARBY_INTENT_RE } from "@/lib/api";
-import { getSessionId } from "@/lib/session";
 
 const FAST_TRIGGERS = [
   "Hotels near me",
@@ -90,7 +89,6 @@ function PoiCard({ p, onFly }) {
 }
 
 export default function AIConcierge({ context, open, onClose, coords, onFocusMap, onPois }) {
-  const sid = getSessionId();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -102,8 +100,8 @@ export default function AIConcierge({ context, open, onClose, coords, onFocusMap
 
   useEffect(() => {
     if (!open) return;
-    getChatHistory(sid).then(setMessages).catch(() => {});
-  }, [open, sid]);
+    getChatHistory().then(setMessages).catch(() => {});
+  }, [open]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -140,7 +138,7 @@ export default function AIConcierge({ context, open, onClose, coords, onFocusMap
       }
       setMessages((m) => [...m, { role: "assistant", id: asstId, content: "Scanning nearby places on OpenStreetMap…", streaming: true }]);
       try {
-        const res = await chatNearby({ session_id: sid, message: t, lat: c.lat, lng: c.lng, radius: 2000, context: context || null });
+        const res = await chatNearby({ message: t, lat: c.lat, lng: c.lng, radius: 2000, context: context || null });
         setMessages((m) => m.map((x) => x.id === asstId ? { ...x, content: res.reply, pois: res.pois || [], category: res.category, streaming: false } : x));
         onPois?.(res.pois || []);
       } catch {
@@ -158,7 +156,7 @@ export default function AIConcierge({ context, open, onClose, coords, onFocusMap
     let acc = "";
     try {
       await streamChat(
-        { session_id: sid, message: t, context: { ...(context || {}), coords: liveCoords } },
+        { message: t, context: { ...(context || {}), coords: liveCoords } },
         {
           onDelta: (d) => { acc += d; setMessages((m) => m.map((x) => x.id === asstId ? { ...x, content: acc } : x)); },
           onDone: () => { setMessages((m) => m.map((x) => x.id === asstId ? { ...x, streaming: false } : x)); },
@@ -169,7 +167,7 @@ export default function AIConcierge({ context, open, onClose, coords, onFocusMap
     } finally { setStreaming(false); abortRef.current = null; }
   };
 
-  const wipe = async () => { await clearChat(sid); setMessages([]); };
+  const wipe = async () => { await clearChat(); setMessages([]); };
   const flyToPoi = (p) => { onFocusMap?.({ lat: p.lat, lng: p.lng, zoom: 16 }); };
 
   if (!open) return null;

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plane, TrainFront, Bus, TramFront, Loader2, Check } from "lucide-react";
 import { searchTransport, createBooking, listBookings } from "@/lib/api";
-import { getSessionId } from "@/lib/session";
 import { toast } from "sonner";
 
 const TYPES = [
@@ -21,7 +20,7 @@ export default function Bookings() {
   const [passenger, setPassenger] = useState("");
   const [bookings, setBookings] = useState([]);
 
-  const refresh = () => listBookings(getSessionId()).then(setBookings);
+  const refresh = () => listBookings().then(setBookings);
   useEffect(() => { refresh(); }, []);
 
   const search = async () => {
@@ -36,7 +35,6 @@ export default function Bookings() {
   const book = async (opt) => {
     if (!passenger.trim()) return toast.error("Enter passenger name first");
     const booking = await createBooking({
-      session_id: getSessionId(),
       type, option_id: opt.id, passenger_name: passenger.trim(),
       extras: { origin, destination, date, price: opt.price ?? opt.fare },
     });

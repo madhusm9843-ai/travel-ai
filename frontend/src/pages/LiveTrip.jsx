@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { listTrips } from "@/lib/api";
-import { getSessionId } from "@/lib/session";
 import MapView from "@/components/MapView";
 import AIConcierge from "@/components/AIConcierge";
 import { LocateFixed, Bot, CloudRain, Wallet, Gauge, Compass, Signal, TrafficCone, Timer } from "lucide-react";
@@ -37,7 +36,7 @@ export default function LiveTrip() {
   const lastPosRef = useRef(null); // { lat, lng, ts }
 
   useEffect(() => {
-    listTrips(getSessionId()).then((t) => { setTrips(t); if (t[0]) setTripId(t[0].id); });
+    listTrips().then((t) => { setTrips(t); if (t[0]) setTripId(t[0].id); });
   }, []);
 
   // GPS watcher — updates whenever the device sends a new fix

@@ -1,8 +1,11 @@
-from fastapi import FastAPI, APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, APIRouter, HTTPException, Header, Depends, Request
+from fastapi.responses import StreamingResponse, JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import os
 import re
 import math
@@ -11,7 +14,7 @@ import logging
 import uuid
 import httpx
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import List, Optional, Any, Dict
 from datetime import datetime, timezone, timedelta
 
@@ -26,8 +29,32 @@ GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
 GROQ_MODEL = os.environ.get('GROQ_MODEL', 'llama-3.3-70b-versatile')
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
+logger = logging.getLogger("travelmate")
+
+# ---------- Rate limiter ----------
+limiter = Limiter(key_func=get_remote_address, default_limits=["600/hour"])
+
 app = FastAPI(title="TravelMate AI API")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 api_router = APIRouter(prefix="/api")
+
+
+# ---------- Session dependency (SEC-001 mitigation) ----------
+SESSION_ID_RE = re.compile(r"^[A-Za-z0-9_\-]{8,128}$")
+
+
+def require_session(x_session_id: Optional[str] = Header(default=None, alias="X-Session-Id")) -> str:
+    if not x_session_id or not SESSION_ID_RE.match(x_session_id):
+        raise HTTPException(status_code=401, detail="Missing or invalid X-Session-Id header")
+    return x_session_id
+
+
+# ---------- Input caps ----------
+MAX_MESSAGE_CHARS = 2000
+MAX_CONTEXT_CHARS = 3000
+MAX_NOTES_CHARS = 1000
+MAX_HISTORY_TURNS = 20
 
 
 # ---------- Models ----------
@@ -36,9 +63,22 @@ def now_iso():
 
 
 class ChatRequest(BaseModel):
-    session_id: str
-    message: str
+    session_id: Optional[str] = None  # optional in body — header is authoritative
+    message: str = Field(..., min_length=1, max_length=MAX_MESSAGE_CHARS)
     context: Optional[Dict[str, Any]] = None
+
+    @field_validator("context")
+    @classmethod
+    def _cap_context(cls, v):
+        if v is None:
+            return v
+        # Cap serialized size
+        try:
+            if len(json.dumps(v)) > MAX_CONTEXT_CHARS:
+                return {"note": "context truncated"}
+        except Exception:
+            return None
+        return v
 
 
 class ChatMessage(BaseModel):
@@ -51,17 +91,17 @@ class ChatMessage(BaseModel):
 
 class TripPreferences(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    session_id: str
-    destination: str
+    session_id: Optional[str] = None  # header wins
+    destination: str = Field(..., min_length=1, max_length=120)
     start_date: str
     end_date: str
-    budget: int  # in INR
-    travelers: int = 2
+    budget: int = Field(..., ge=500, le=10_000_000)
+    travelers: int = Field(2, ge=1, le=40)
     interests: List[str] = []
-    travel_style: str = "balanced"  # relaxed | balanced | packed
+    travel_style: str = "balanced"
     diet: str = "any"
     include_festivals: bool = True
-    notes: str = ""
+    notes: str = Field("", max_length=MAX_NOTES_CHARS)
 
 
 class Trip(BaseModel):
@@ -79,12 +119,22 @@ class Trip(BaseModel):
 
 
 class BookingRequest(BaseModel):
-    session_id: str
-    type: str  # flight | train | bus | metro
-    option_id: str
-    passenger_name: str
-    seat: Optional[str] = None
+    session_id: Optional[str] = None  # header wins
+    type: str = Field(..., pattern=r"^(flight|train|bus|metro)$")
+    option_id: str = Field(..., min_length=1, max_length=64)
+    passenger_name: str = Field(..., min_length=1, max_length=120)
+    seat: Optional[str] = Field(None, max_length=16)
     extras: Optional[Dict[str, Any]] = None
+
+
+class NearbyChatRequest(BaseModel):
+    session_id: Optional[str] = None
+    message: str = Field(..., min_length=1, max_length=MAX_MESSAGE_CHARS)
+    lat: float = Field(..., ge=-90, le=90)
+    lng: float = Field(..., ge=-180, le=180)
+    radius: Optional[int] = Field(1500, ge=100, le=8000)
+    category: Optional[str] = None
+    context: Optional[Dict[str, Any]] = None
 
 
 # ---------- Destinations catalog ----------
@@ -215,24 +265,30 @@ SYSTEM_PROMPT = (
 )
 
 
-async def groq_chat(messages: List[Dict[str, str]], temperature: float = 0.6, json_mode: bool = False) -> str:
+async def groq_chat(messages: List[Dict[str, str]], temperature: float = 0.6, json_mode: bool = False, max_tokens: int = 900) -> str:
     if not GROQ_API_KEY:
-        raise HTTPException(500, "GROQ_API_KEY not configured")
+        raise HTTPException(status_code=500, detail="AI service is temporarily unavailable")
     payload = {
         "model": GROQ_MODEL,
         "messages": messages,
         "temperature": temperature,
-        "max_tokens": 3000,
+        "max_tokens": max_tokens,
     }
     if json_mode:
         payload["response_format"] = {"type": "json_object"}
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-    async with httpx.AsyncClient(timeout=90) as hc:
-        r = await hc.post(GROQ_URL, json=payload, headers=headers)
-        if r.status_code != 200:
-            raise HTTPException(r.status_code, f"Groq error: {r.text[:300]}")
-        data = r.json()
-        return data["choices"][0]["message"]["content"]
+    try:
+        async with httpx.AsyncClient(timeout=90) as hc:
+            r = await hc.post(GROQ_URL, json=payload, headers=headers)
+    except Exception:
+        logger.exception("Groq network error")
+        raise HTTPException(status_code=502, detail="AI service temporarily unavailable")
+    if r.status_code != 200:
+        # Never echo upstream body to clients (SEC-003)
+        logger.warning("Groq upstream %s: %s", r.status_code, r.text[:400])
+        raise HTTPException(status_code=502, detail="AI service temporarily unavailable")
+    data = r.json()
+    return data["choices"][0]["message"]["content"]
 
 
 # ---------- Routes ----------
@@ -255,46 +311,48 @@ async def get_destination(dest_id: str):
 
 
 @api_router.post("/chat")
-async def chat(req: ChatRequest):
-    # Load recent history
+@limiter.limit("30/minute")
+async def chat(request: Request, req: ChatRequest, sid: str = Depends(require_session)):
+    # Load recent history for this session (from header — SEC-001)
     history_docs = await db.chat_messages.find(
-        {"session_id": req.session_id}, {"_id": 0}
-    ).sort("timestamp", 1).to_list(30)
+        {"session_id": sid}, {"_id": 0}
+    ).sort("timestamp", 1).to_list(MAX_HISTORY_TURNS * 2)
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     if req.context:
         ctx_text = "Current trip context: " + json.dumps(req.context)[:1500]
         messages.append({"role": "system", "content": ctx_text})
-    for m in history_docs[-20:]:
+    for m in history_docs[-MAX_HISTORY_TURNS:]:
         messages.append({"role": m["role"], "content": m["content"]})
     messages.append({"role": "user", "content": req.message})
 
-    user_msg = ChatMessage(session_id=req.session_id, role="user", content=req.message)
+    user_msg = ChatMessage(session_id=sid, role="user", content=req.message)
     await db.chat_messages.insert_one(user_msg.model_dump())
 
     reply = await groq_chat(messages, temperature=0.7)
 
-    assistant_msg = ChatMessage(session_id=req.session_id, role="assistant", content=reply)
+    assistant_msg = ChatMessage(session_id=sid, role="assistant", content=reply)
     await db.chat_messages.insert_one(assistant_msg.model_dump())
 
     return {"reply": reply, "message_id": assistant_msg.id}
 
 
 @api_router.post("/chat/stream")
-async def chat_stream(req: ChatRequest):
+@limiter.limit("30/minute")
+async def chat_stream(request: Request, req: ChatRequest, sid: str = Depends(require_session)):
     """SSE streaming endpoint — yields token-by-token like ChatGPT/Claude."""
     history_docs = await db.chat_messages.find(
-        {"session_id": req.session_id}, {"_id": 0}
-    ).sort("timestamp", 1).to_list(30)
+        {"session_id": sid}, {"_id": 0}
+    ).sort("timestamp", 1).to_list(MAX_HISTORY_TURNS * 2)
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     if req.context:
         messages.append({"role": "system", "content": "Current trip context: " + json.dumps(req.context)[:1500]})
-    for m in history_docs[-20:]:
+    for m in history_docs[-MAX_HISTORY_TURNS:]:
         messages.append({"role": m["role"], "content": m["content"]})
     messages.append({"role": "user", "content": req.message})
 
-    user_msg = ChatMessage(session_id=req.session_id, role="user", content=req.message)
+    user_msg = ChatMessage(session_id=sid, role="user", content=req.message)
     await db.chat_messages.insert_one(user_msg.model_dump())
 
     assistant_id = str(uuid.uuid4())
@@ -306,7 +364,7 @@ async def chat_stream(req: ChatRequest):
             "model": GROQ_MODEL,
             "messages": messages,
             "temperature": 0.7,
-            "max_tokens": 3000,
+            "max_tokens": 900,
             "stream": True,
         }
         headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
@@ -315,7 +373,8 @@ async def chat_stream(req: ChatRequest):
                 async with hc.stream("POST", GROQ_URL, json=payload, headers=headers) as r:
                     if r.status_code != 200:
                         err_body = (await r.aread()).decode(errors="ignore")[:300]
-                        yield f"event: error\ndata: {json.dumps({'error': err_body})}\n\n"
+                        logger.warning("Groq stream upstream %s: %s", r.status_code, err_body)
+                        yield f"event: error\ndata: {json.dumps({'error': 'AI service temporarily unavailable'})}\n\n"
                         return
                     async for line in r.aiter_lines():
                         if not line or not line.startswith("data:"):
@@ -331,12 +390,13 @@ async def chat_stream(req: ChatRequest):
                                 yield f"data: {json.dumps({'delta': delta})}\n\n"
                         except Exception:
                             continue
-        except Exception as e:
-            yield f"event: error\ndata: {json.dumps({'error': str(e)[:200]})}\n\n"
+        except Exception:
+            logger.exception("Groq stream error")
+            yield f"event: error\ndata: {json.dumps({'error': 'AI stream error'})}\n\n"
 
         # persist final message
         if buffer_text:
-            assistant_msg = ChatMessage(id=assistant_id, session_id=req.session_id, role="assistant", content=buffer_text)
+            assistant_msg = ChatMessage(id=assistant_id, session_id=sid, role="assistant", content=buffer_text)
             await db.chat_messages.insert_one(assistant_msg.model_dump())
         yield f"event: done\ndata: {json.dumps({'message_id': assistant_id})}\n\n"
 
@@ -347,17 +407,17 @@ async def chat_stream(req: ChatRequest):
     )
 
 
-@api_router.get("/chat/{session_id}")
-async def chat_history(session_id: str):
+@api_router.get("/chat")
+async def chat_history(sid: str = Depends(require_session)):
     docs = await db.chat_messages.find(
-        {"session_id": session_id}, {"_id": 0}
+        {"session_id": sid}, {"_id": 0}
     ).sort("timestamp", 1).to_list(200)
     return docs
 
 
-@api_router.delete("/chat/{session_id}")
-async def clear_chat(session_id: str):
-    await db.chat_messages.delete_many({"session_id": session_id})
+@api_router.delete("/chat")
+async def clear_chat(sid: str = Depends(require_session)):
+    await db.chat_messages.delete_many({"session_id": sid})
     return {"ok": True}
 
 
@@ -472,25 +532,24 @@ out center 40;"""
 
 
 @api_router.get("/nearby")
-async def nearby(lat: float, lng: float, category: str = "attraction", radius: int = 1500):
+@limiter.limit("60/minute")
+async def nearby(request: Request, lat: float, lng: float, category: str = "attraction", radius: int = 1500):
+    if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
+        raise HTTPException(400, "lat/lng out of range")
+    radius = max(100, min(int(radius), 8000))
+    if category not in CATEGORY_FILTER:
+        raise HTTPException(400, "Invalid category")
     pois = await overpass_nearby(lat, lng, category, radius=radius)
     return {"category": category, "count": len(pois), "results": pois}
 
 
-class NearbyChatRequest(BaseModel):
-    session_id: str
-    message: str
-    lat: float
-    lng: float
-    radius: Optional[int] = 1500
-    category: Optional[str] = None
-    context: Optional[Dict[str, Any]] = None
-
-
 @api_router.post("/chat/nearby")
-async def chat_nearby(req: NearbyChatRequest):
+@limiter.limit("30/minute")
+async def chat_nearby(request: Request, req: NearbyChatRequest, sid: str = Depends(require_session)):
     """Location-aware chat: fetches nearby POIs from OpenStreetMap, then answers with the LLM using them as context."""
     category = req.category or infer_category(req.message) or "attraction"
+    if category not in CATEGORY_FILTER:
+        category = "attraction"
     pois = await overpass_nearby(req.lat, req.lng, category, radius=req.radius or 1500, limit=8)
 
     poi_context = "\n".join([
@@ -500,7 +559,7 @@ async def chat_nearby(req: NearbyChatRequest):
         for p in pois
     ]) or "No POIs returned from the OpenStreetMap search."
 
-    history = await db.chat_messages.find({"session_id": req.session_id}, {"_id": 0}).sort("timestamp", 1).to_list(20)
+    history = await db.chat_messages.find({"session_id": sid}, {"_id": 0}).sort("timestamp", 1).to_list(20)
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "system", "content":
@@ -514,14 +573,10 @@ async def chat_nearby(req: NearbyChatRequest):
         messages.append({"role": m["role"], "content": m["content"]})
     messages.append({"role": "user", "content": req.message})
 
-    # Save user message
-    await db.chat_messages.insert_one(ChatMessage(session_id=req.session_id, role="user", content=req.message).model_dump())
-
+    await db.chat_messages.insert_one(ChatMessage(session_id=sid, role="user", content=req.message).model_dump())
     reply = await groq_chat(messages, temperature=0.6)
-
-    asst = ChatMessage(session_id=req.session_id, role="assistant", content=reply)
+    asst = ChatMessage(session_id=sid, role="assistant", content=reply)
     await db.chat_messages.insert_one(asst.model_dump())
-
     return {"reply": reply, "message_id": asst.id, "category": category, "pois": pois}
 
 
@@ -529,7 +584,8 @@ async def chat_nearby(req: NearbyChatRequest):
 
 
 @api_router.post("/itinerary/generate")
-async def generate_itinerary(prefs: TripPreferences):
+@limiter.limit("10/minute")
+async def generate_itinerary(request: Request, prefs: TripPreferences, sid: str = Depends(require_session)):
     # Compute # days
     try:
         d1 = datetime.fromisoformat(prefs.start_date)
@@ -537,6 +593,7 @@ async def generate_itinerary(prefs: TripPreferences):
         num_days = max(1, (d2 - d1).days + 1)
     except Exception:
         num_days = 5
+    num_days = min(num_days, 30)
 
     ask = f"""Craft a detailed {num_days}-day itinerary for {prefs.destination}, India.
 Traveler profile:
@@ -602,14 +659,14 @@ The "days" array length MUST equal {num_days}.
     plan["days"] = days_out[:num_days]
 
     trip = Trip(
-        session_id=prefs.session_id,
+        session_id=sid,
         title=plan.get("title", f"{prefs.destination} Escape"),
         destination=prefs.destination,
         start_date=prefs.start_date,
         end_date=prefs.end_date,
         budget=prefs.budget,
         travelers=prefs.travelers,
-        preferences=prefs.model_dump(),
+        preferences={**prefs.model_dump(), "session_id": sid},
         itinerary=[plan],
     )
     await db.trips.insert_one(trip.model_dump())
@@ -617,22 +674,24 @@ The "days" array length MUST equal {num_days}.
 
 
 @api_router.get("/trips")
-async def list_trips(session_id: str):
-    docs = await db.trips.find({"session_id": session_id}, {"_id": 0}).sort("created_at", -1).to_list(50)
+async def list_trips(sid: str = Depends(require_session)):
+    docs = await db.trips.find({"session_id": sid}, {"_id": 0}).sort("created_at", -1).to_list(50)
     return docs
 
 
 @api_router.get("/trips/{trip_id}")
-async def get_trip(trip_id: str):
-    doc = await db.trips.find_one({"id": trip_id}, {"_id": 0})
+async def get_trip(trip_id: str, sid: str = Depends(require_session)):
+    doc = await db.trips.find_one({"id": trip_id, "session_id": sid}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Trip not found")
     return doc
 
 
 @api_router.delete("/trips/{trip_id}")
-async def delete_trip(trip_id: str):
-    await db.trips.delete_one({"id": trip_id})
+async def delete_trip(trip_id: str, sid: str = Depends(require_session)):
+    res = await db.trips.delete_one({"id": trip_id, "session_id": sid})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Trip not found")
     return {"ok": True}
 
 
@@ -695,6 +754,8 @@ def _mock_metro(origin: str, destination: str):
 
 @api_router.get("/transport/search")
 async def transport_search(type: str, origin: str, destination: str, date: str = ""):
+    if len(origin) > 60 or len(destination) > 60 or len(date) > 32:
+        raise HTTPException(400, "input too long")
     t = type.lower()
     if t == "flight":
         return {"type": t, "options": _mock_flights(origin, destination, date)}
@@ -708,10 +769,10 @@ async def transport_search(type: str, origin: str, destination: str, date: str =
 
 
 @api_router.post("/bookings")
-async def create_booking(req: BookingRequest):
+async def create_booking(req: BookingRequest, sid: str = Depends(require_session)):
     booking = {
         "id": str(uuid.uuid4()),
-        "session_id": req.session_id,
+        "session_id": sid,
         "type": req.type,
         "option_id": req.option_id,
         "passenger_name": req.passenger_name,
@@ -727,14 +788,17 @@ async def create_booking(req: BookingRequest):
 
 
 @api_router.get("/bookings")
-async def list_bookings(session_id: str):
-    docs = await db.bookings.find({"session_id": session_id}, {"_id": 0}).sort("created_at", -1).to_list(100)
+async def list_bookings(sid: str = Depends(require_session)):
+    docs = await db.bookings.find({"session_id": sid}, {"_id": 0}).sort("created_at", -1).to_list(100)
     return docs
 
 
 # ---------- Cultural festivals near date (AI backed, cached) ----------
 @api_router.get("/festivals")
-async def festivals(destination: str, date: str):
+@limiter.limit("30/minute")
+async def festivals(request: Request, destination: str, date: str):
+    if len(destination) > 60 or len(date) > 32:
+        raise HTTPException(400, "input too long")
     key = f"{destination.lower()}::{date}"
     cached = await db.festivals_cache.find_one({"key": key}, {"_id": 0})
     if cached:
@@ -746,7 +810,7 @@ async def festivals(destination: str, date: str):
     )
     raw = await groq_chat(
         [{"role": "system", "content": "Return JSON only."}, {"role": "user", "content": ask}],
-        temperature=0.3, json_mode=True,
+        temperature=0.3, json_mode=True, max_tokens=600,
     )
     try:
         val = json.loads(raw)
@@ -758,16 +822,26 @@ async def festivals(destination: str, date: str):
 
 app.include_router(api_router)
 
+
+def _parse_origins(raw: str) -> List[str]:
+    parts = [p.strip() for p in (raw or "").split(",") if p.strip()]
+    return parts or ["*"]
+
+
+_configured_origins = _parse_origins(os.environ.get("CORS_ORIGINS", "*"))
+# When wildcard is present, credentials must be disabled per browser spec — avoid CWE-942 misconfig
+_allow_credentials = "*" not in _configured_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_credentials=_allow_credentials,
+    allow_origins=_configured_origins,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Session-Id"],
 )
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
 
 
 @app.on_event("shutdown")

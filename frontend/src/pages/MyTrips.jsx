@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { listTrips, deleteTrip } from "@/lib/api";
-import { getSessionId } from "@/lib/session";
 import { Sparkles, Trash2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
@@ -10,7 +9,7 @@ export default function MyTrips() {
   const [loading, setLoading] = useState(true);
 
   const refresh = () =>
-    listTrips(getSessionId())
+    listTrips()
       .then(setTrips)
       .finally(() => setLoading(false));
   useEffect(() => { refresh(); }, []);
